@@ -34,6 +34,10 @@ $('#billing_address_2').attr('placeholder','Enter Your Apartment Or Suite');
     // Global Retrieve existing form data or initialize an empty object
     var formData = JSON.parse(sessionStorage.getItem('formData')) || {};
 
+//get visible panel
+    var visibleElement = $('.woocommerce-checkout > .thwmsc-tab-panel:visible');
+
+
     // Function to save the fields of the current step to sessionStorage
     function saveStepData(stepElement) {
         var stepId = $(stepElement).attr('id'); // Get the ID of the step (step1, step2, step3)
@@ -85,6 +89,11 @@ $('#billing_address_2').attr('placeholder','Enter Your Apartment Or Suite');
                 window.location.hash = secondClass;
             }
 
+      
+
+            //set the current hash as session to be used lated
+            sessionStorage.setItem('currentStep', window.location.hash.substring(1));
+
             // Save the data for this visible step
             saveStepData(visibleElement);
         }
@@ -92,10 +101,98 @@ $('#billing_address_2').attr('placeholder','Enter Your Apartment Or Suite');
 
     // Initial hash update and populate fields when the page loads
     populateFields();  // Populate fields with saved data from sessionStorage
-    updateHash();  // Update the URL hash based on the currently visible step
+    // updateHash();  // Update the URL hash based on the currently visible step
+
+    
+     //change the hash when there is a hash in the url
+       let get_step = sessionStorage.getItem('currentStep') || 'personal_info';
+
+        //show the step aligned with the session step
+     $('.thwmsc-tab-panel').hide();
+  
+     $(`.${get_step}`).attr('style','display:block!important').find('.thwmsc-tab-content').attr('style','display:block!important');
+             window.location.hash = get_step;
+                  console.log('current step:' +get_step);
+
+     
+
+           var visibleElement = $('.woocommerce-checkout > .thwmsc-tab-panel:visible');
+
+           if (visibleElement.length) {
+              //we jump to the multi step based on the current hash
+            let get_step_number = visibleElement.attr('id').split('-').pop();
+             //call the jump from multi step plugin function
+            if (get_step_number > 0) {
+                             thwmscJumpToStep(get_step_number);
+
+            }
+            console.log('step number'+ get_step_number);
+           }
+         
+
+    // Retrieve the object from sessionStorage
+    const storedData = JSON.parse(sessionStorage.getItem('formData'));
+    let selectedData ="";
+    if (storedData) {
+
+    // Access the value of "selected_data"
+    selectedData = storedData.selected_data;
+    }
+
+     //let's check if the pln step is visible
+     var checkstepPlan = setInterval(function() {
+
+
+     if (visibleElement.hasClass('plan') || visibleElement.hasClass('billing')) {
+
+         // Check if the current step is not 'personal_info' and if selectedData exists
+    if (sessionStorage.getItem('currentStep') !== 'personal_info' && selectedData) {
+
+        // Click the element based on selectedData
+        $('#variation-' + selectedData).find('.elementor-price-table__button').click();
+        
+        // Add the 'tier-selected' class to #action-next
+        $('#action-next').addClass('tier-selected');
+
+        // Log the selectedData to the console
+        console.log(selectedData); // Outputs: 5975 or whatever the stored value is
+    }
+
+
+    //we force the jump to billing section when user selecte a plan
+    $('#action-next.tier-selected').on('click',function(){
+        if (!$(this).siblings().hasClass('prev-first')) {
+                     thwmscJumpToStep(2);
+        }
+
+    });
+
+
+}
+clearInterval(checkstepPlan);
+}, 500); // Delay of 2000ms (2 seconds)
+
+
+
+    //hide buttons when the suer access order review
+    if (get_step == 'order_review') {
+        $('.thwmsc-buttons').hide();
+        $('.thwmsc-tab .last').addClass('thwmsc-completed');
+    }
+     
+    //we force to the plan section when clicked from the first step
+/*    if (visibleElement.length) {
+        let requiredField = visibleElement.find('.validate-required');
+        let valueField = visibleElement.find('.validate-required input, .validate-required texarea, .validate-required select');
+        if (requiredField.length > 0 && !requiredField.hasClass('woocommerce-invalid') && valueField.val()!== "") {
+         thwmscJumpToStep(1);
+    } 
+
+    }*/
+
 
     // Periodically check for visibility changes and update hash and session storage
-    setInterval(updateHash, 500); // Check every 500ms (adjust as needed)
+    setInterval(updateHash, 1500); // Check every 500ms (adjust as needed)
 
 
 
@@ -199,6 +296,17 @@ $('#billing_address_2').attr('placeholder','Enter Your Apartment Or Suite');
 
         }
     );
+
+function toggleStripeCheckoutVisibility() {
+    if ($('.billing').is(':visible')) {
+           //show the express checkout
+                $('#wc-stripe-express-checkout-element, #wc-stripe-express-checkout-button-separator').attr('style', 'display:flex!important');
+                $('#wc-stripe-express-checkout-button-separator').insertBefore('#wc-stripe-express-checkout-element-link');
+    } else {
+        $('#wc-stripe-express-checkout-element').hide(); // Hide the Stripe checkout element
+    }
+}
+
     
     //multi step checkout scripts
 
@@ -218,6 +326,7 @@ $('#billing_address_2').attr('placeholder','Enter Your Apartment Or Suite');
 
     // Handle the click event on #action-next button
     $('#action-next').on('click', function() {
+        toggleStripeCheckoutVisibility()
                     setTimeout(function() {
 $('.woocommerce-error').attr('style', 'display: block !important');
                                 }, 1500);
@@ -227,9 +336,24 @@ $('.woocommerce-error').attr('style', 'display: block !important');
 
               if (plan.length && plan.css('display') !== 'none') {
                         //set the next button to disabled until the user selected a plan
+                            // Check if the current step is not 'personal_info' and if selectedData exists
+                if (sessionStorage.getItem('currentStep') !== 'personal_info' && selectedData) {
 
+                    // Click the element based on selectedData
+                    $('#variation-' + selectedData).find('.elementor-price-table__button').click();
+                    
+
+                    // Log the selectedData to the console
+                    console.log(selectedData); // Outputs: 5975 or whatever the stored value is
+                }
                         $('#action-next:not(.tier-selected)').prop('disabled',true);
                         clearInterval(plan_panel);
+
+              }
+
+              //remove the currentstep when user purchased
+              if (visibleElement.hasClass('order_review')) {
+                sessionStorage.removeItem('currentStep');
 
               }
 
@@ -335,9 +459,7 @@ $('.woocommerce-error').attr('style', 'display: block !important');
             if (billingPanel.length && billingPanelContent.css('display') !== 'none') {
                 console.log('Billing panel is visible.');
                                 //$('.thwmsc-tab.tab-active a').addClass('thwmsc-completed'); 
-                //show the express checkout
-                $('#wc-stripe-express-checkout-element, #wc-stripe-express-checkout-button-separator').attr('style', 'display:flex!important');
-                $('#wc-stripe-express-checkout-button-separator').insertBefore('#wc-stripe-express-checkout-element-link');
+            
                                 
                     billing_fields();
                             
@@ -379,12 +501,15 @@ $(sagreement).insertAfter($('.woocommerce-privacy-policy-text'));
 
                 // Stop checking further once the condition has been met
                 clearInterval(intervalId);
+            }else{
+            $('#wc-stripe-express-checkout-element').attr('style', 'display:none!important');   
             }
         }, 500); // Check every 500 milliseconds (adjust as needed)
     });
 
     // Handle the click event on #action-prev button
     $('#action-prev').on('click', function() {
+        toggleStripeCheckoutVisibility()
 
         //check if the sibling action-next has class tier-selected, hide the timer
         if ($(this).siblings().hasClass('tier-selected')) {
@@ -802,6 +927,23 @@ $(window).on('load', function() {
                   }
 
     }
+
+/*    //show the step based on url hash
+    let visibleElement = $('.woocommerce-checkout > .thwmsc-tab-panel:visible');
+    let get_hash = location.hash.substring(1);
+
+    //show the step containing the hash class
+    $(`.${get_hash}`).attr('style','display:block!important').find('.thwmsc-tab-content').attr('style','display:block!important');
+
+    if (visibleElement.length) {
+        let get_step_number = visibleElement.attr('id').split('-').pop();
+        //call the jump from multi step plugin function
+        thwmscJumpToStep(get_step_number);
+    }*/
+
+     let get_step = sessionStorage.getItem('currentStep');
+     console.log('current step:' +get_step);
+
 });
 
 // Add to cart when select is clicked
